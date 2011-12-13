@@ -27,12 +27,10 @@ SC.FieldView = SC.View.extend(SC.Control, SC.Validatable,
 /** @scope SC.FieldView.prototype */ {
   
   /**
-    The WAI-ARIA role for field view. This property's value should not be
-    changed.
-
-    @property {String}
+     If YES then we use textarea instead of input. 
+     WARNING: Use only with textField** Juan
   */
-  ariaRole: 'textbox',
+  isTextArea: NO,
 
   _field_isMouseDown: NO,
 
@@ -60,16 +58,11 @@ SC.FieldView = SC.View.extend(SC.Control, SC.Validatable,
     current isEnabled state among other things.
   */
   $input: function() { 
-    var elementTagName = this._inputElementTagName(); // usually "input"
-    return this.$(elementTagName).andSelf().filter(elementTagName);
-  },
-  
-  /** @private
-    Override to specify the HTML element type to use as the field. For
-    example, "input" or "textarea".
-  */
-  _inputElementTagName: function() {
-    return 'input';
+    if(this.get('isTextArea')){
+      return this.$('textarea').andSelf().filter('textarea'); 
+    }else{
+      return this.$('input').andSelf().filter('input');
+    }
   },
   
   /**
@@ -180,9 +173,20 @@ SC.FieldView = SC.View.extend(SC.Control, SC.Validatable,
   */
   didCreateLayer: function() {
     this.setFieldValue(this.get('fieldValue'));
-    this._addChangeEvent();
+    SC.Event.add(this.$input(), 'change', this, this._field_fieldValueDidChange) ;
   },
 
+  /** @private
+    after the layer is append to the doc, set the field value and observe events
+    only for textarea.
+  */
+  didAppendToDocument: function() {
+    if (this.get('isTextArea')) {
+      this.setFieldValue(this.get('fieldValue'));
+      SC.Event.add(this.$input(), 'change', this, this._field_fieldValueDidChange) ;
+    }
+  },
+  
   willDestroyLayer: function() {
     SC.Event.remove(this.$input(), 'change', this, this._field_fieldValueDidChange); 
   },
@@ -276,10 +280,6 @@ SC.FieldView = SC.View.extend(SC.Control, SC.Validatable,
     if (SC.FOCUS_ALL_CONTROLS) { return this.get('isEnabled'); }
     return NO;
   }.property('isEnabled'),
-  
-  _addChangeEvent: function() {
-    SC.Event.add(this.$input(), 'change', this, this._field_fieldValueDidChange);
-  },
     
   // these methods use the validator to convert the raw field value returned
   // by your subclass into an object and visa versa.
@@ -297,17 +297,6 @@ SC.FieldView = SC.View.extend(SC.Control, SC.Validatable,
     var ret = this.getFieldValue() ;
     if (this.objectForFieldValue) ret = this.objectForFieldValue(ret);
     return ret ;
-  },
-
-  render: function(context, firstTime) {
-    sc_super();
-
-    //addressing accessibility
-    if(firstTime) {
-      context.attr('aria-disabled', !this.get('isEnabled'));
-    }
-  }
-
-  
+  }  
 });
 
