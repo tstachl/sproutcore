@@ -40,6 +40,8 @@ SC.ContainerView = SC.View.extend(
   */
   nowShowing: null,
 
+  optimizeViews: NO,
+
   /** 
     The content view to display.  This will become the only child view of
     the view.  Note that if you set the nowShowing property to any value other
@@ -63,8 +65,21 @@ SC.ContainerView = SC.View.extend(
     @param {SC.View} newContent the new content view or null.
   */
   replaceContent: function(newContent) {
-    this.removeAllChildren() ;
-    if (newContent) this.appendChild(newContent) ;
+    var optimizeViews = this.get('optimizeViews'), children;
+
+    if (optimizeViews) {
+      children = this.get('childViews');
+      if (children) children.setEach('isVisible',NO);
+
+      if (children && children.contains(newContent)) {
+        newContent.set('isVisible',YES);
+      } else if (newContent) {
+        this.appendChild(newContent) ; 
+      }
+    } else {
+      this.removeAllChildren() ;
+      if (newContent) this.appendChild(newContent) ;  
+    }
   },
 
   /** @private */
@@ -77,6 +92,8 @@ SC.ContainerView = SC.View.extend(
     } 
   },
   
+  _cache: {},
+
   /**
     When a container view awakes, it will try to find the nowShowing, if 
     there is one, and set it as content if necessary.
@@ -85,6 +102,14 @@ SC.ContainerView = SC.View.extend(
     sc_super();
     var nowShowing = this.get('nowShowing') ;
     if (nowShowing && nowShowing.length>0) this.nowShowingDidChange();
+  },
+
+  /**
+    Clean out the cache
+  */
+  destroy: function () {
+    if (this.get('optimizeViews') && this._cache) this._cache = {};
+    sc_super();
   },
   
   /**
@@ -98,16 +123,37 @@ SC.ContainerView = SC.View.extend(
   nowShowingDidChange: function() {
     // This code turns this.nowShowing into a view object by any means necessary.
     
-    var content = this.get('nowShowing') ;
+    var content = this.get('nowShowing'), viewToDestroy, optimizeViews = this.get('optimizeViews'),
+      nowShowing = this.get('nowShowing'), children = this.get('childViews'),
+      cache = this._cache, cacheNowShowing = cache[nowShowing];
     
     // If nowShowing was changed because the content was set directly, then do nothing.
     if (content === SC.CONTENT_SET_DIRECTLY) return ;
 
-    // Take note now if we need to destroy the current contentView
-    var viewToDestroy = (this._instantiatedLastView === YES) ? this.get('contentView') : null;
+    // check if this already exists in the cache (strings) or the childViews (instantiated) already
+    if (optimizeViews && (cacheNowShowing || children.contains(nowShowing))) {
+      if (cacheNowShowing && cacheNowShowing !== content) {
+        /**
+          This will only trigger for uninstantiated views because I'm unable to get a unique
+          id from them since the toString method returns a non-guid string
+        */
 
-    // Reset for next time
-    this._instantiatedLastView = NO;
+        // kill the old view
+        if (cacheNowShowing.destroy) cacheNowShowing.destroy();
+        // remove the pointer
+        delete this._cache[nowShowing];
+      } else {
+        this.set('contentView',cacheNowShowing);
+        return;
+      }
+    }
+
+    if (!optimizeViews) {
+      // Take note now if we need to destroy the current contentView
+      viewToDestroy = (this._instantiatedLastView === YES) ? this.get('contentView') : null;
+      // Reset for next time
+      this._instantiatedLastView = NO;
+    }
 
     // If it's a string, try to turn it into the object it references...
     if (SC.typeOf(content) === SC.T_STRING && content.length > 0) {
@@ -131,12 +177,13 @@ SC.ContainerView = SC.View.extend(
     
     // If content has not been turned into a view by now, it's hopeless.
     if (content && !(content instanceof SC.CoreView)) content = null;
-    
+
+    if (optimizeViews && content) this._cache[nowShowing] = content;
     // Sets the content.
     this.set('contentView', content) ;
 
     // If we need to cleanup the previous view, do so
-    if(viewToDestroy) viewToDestroy.destroy();
+    if(viewToDestroy && !optimizeViews) viewToDestroy.destroy();
     
   }.observes('nowShowing'),
   

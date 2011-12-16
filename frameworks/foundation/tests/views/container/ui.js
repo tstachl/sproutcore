@@ -29,16 +29,16 @@
 
   });
 
-  pane.add("has-templates", SC.ContainerView, {
-    nowShowing: 'template',
+  // pane.add("has-templates", SC.ContainerView, {
+  //   nowShowing: 'template',
 
-    template: SC.TemplateView.design({
-      isTemplate1: YES
-    }),
-    template2: SC.TemplateView.design({
-      isTemplate2: YES
-    })
-  });
+  //   template: SC.TemplateView.design({
+  //     isTemplate1: YES
+  //   }),
+  //   template2: SC.TemplateView.design({
+  //     isTemplate2: YES
+  //   })
+  // });
   
   pane.add("cleans-up-views", SC.ContainerView, {
     nowShowing: 'uninstantiatedView',
@@ -46,6 +46,11 @@
     uninstantiatedView: SC.View.design({})
   });
 
+  pane.add("reuse-children", SC.ContainerView, {
+    optimizeViews: YES,
+    isEnabled: YES
+  });
+  
     // .add("disabled - single selection", SC.ListView, {
     //   isEnabled: NO,
     //   content: content,
@@ -94,6 +99,8 @@
     ok(view.$().hasClass('disabled'), 'should have disabled class');
     ok(!view.$().hasClass('sel'), 'should not have sel class');
   });
+
+  
    
   // test("disabled - single selection", function() {
   //   var view = pane.view('disabled - single selection');
@@ -159,29 +166,29 @@
 
   });
 
-  test("Works with TemplateViews", function() {
-    var view = pane.view("has-templates");
-    view.awake();
+  // test("Works with TemplateViews", function() {
+  //   var view = pane.view("has-templates");
+  //   view.awake();
 
-    var contentView = view.get('contentView');
+  //   var contentView = view.get('contentView');
 
-    equals(view.get('nowShowing'), 'template', "precond - should have correct nowShowing");
-    ok(contentView, "precond - should have contentView");
-    ok(contentView.isTemplate1, "precond - should have correct contentView");
+  //   equals(view.get('nowShowing'), 'template', "precond - should have correct nowShowing");
+  //   ok(contentView, "precond - should have contentView");
+  //   ok(contentView.isTemplate1, "precond - should have correct contentView");
 
-    SC.run(function() { view.set('nowShowing', 'template2'); });
+  //   SC.run(function() { view.set('nowShowing', 'template2'); });
 
-    contentView = view.get('contentView');
+  //   contentView = view.get('contentView');
 
-    ok(contentView, "should still have contentView");
-    ok(contentView.isTemplate2, "should have switched contentView");
+  //   ok(contentView, "should still have contentView");
+  //   ok(contentView.isTemplate2, "should have switched contentView");
 
-    SC.run(function() { view.set('nowShowing', null); });
+  //   SC.run(function() { view.set('nowShowing', null); });
 
-    contentView = view.get('contentView');
+  //   contentView = view.get('contentView');
 
-    ok(!contentView, "should have removed contentView");
-  });
+  //   ok(!contentView, "should have removed contentView");
+  // });
   
   test("Cleans up instantiated views", function() {
     var view = pane.view("cleans-up-views");
@@ -200,4 +207,104 @@
     equals(contentView.isDestroyed, YES, "should have destroyed the view it instantiated (from class)");
   });
 
+    test("Reuse instantiated children view for optimization", function () {
+    var view = pane.view('reuse-children');
+    view.awake();
+
+    var viewToAdd1 = SC.View.create({value: 'View1'});
+    SC.run(function () {view.set('nowShowing',viewToAdd1); });
+
+    var children = view.get('childViews');
+    equals(children.get('length'), 1, "should have one child view after setting nowShowing to viewToAdd1(instantiated)");
+
+    var viewToAdd2 = SC.View.create({value: 'View2'});
+    SC.run(function () { view.set('nowShowing',viewToAdd2); });
+    equals(children.get('length'), 2, "should have two child views after setting nowShowing to viewToAdd2(instantiated)"); 
+
+    var viewToAdd3 = SC.View.create({value: 'View3'});
+    SC.run(function () { view.set('nowShowing',viewToAdd3); });
+    equals(children.get('length'), 3, "should have three child views after setting nowShowing to viewToAdd3(instantiated)");
+
+    SC.run(function () { view.set('nowShowing',viewToAdd2); });
+    equals(children.get('length'), 3, "should have three child views after setting nowShowing to viewToAdd2(instantiated)");
+
+    SC.run(function () { view.set('nowShowing',viewToAdd1); });
+    equals(children.get('length'), 3, "should have three child views after setting nowShowing to viewToAdd1(instantiated)");
+  });
+
+  test("Destroy uninstantiated children views because they cannot be uniquely identified", function () {
+    var view = pane.view('reuse-children');
+    view.awake();
+
+    var viewToAdd1 = SC.View.extend({value: 'View1'});
+    SC.run(function () {view.set('nowShowing',viewToAdd1); });
+
+    var children = view.get('childViews');
+    equals(children.get('length'), 1, "should have one child view after setting nowShowing to view1(uninstantiated)");
+
+    var viewToAdd2 = SC.View.extend({value: 'View2'});
+    SC.run(function () { view.set('nowShowing',viewToAdd2); });
+    equals(children.get('length'), 1, "should have one child views after setting nowShowing to view2(uninstantiated)"); 
+
+    var viewToAdd3 = SC.View.extend({value: 'View3'});
+    SC.run(function () { view.set('nowShowing',viewToAdd3); });
+    equals(children.get('length'), 1, "should have one child views after setting nowShowing to view3(uninstantiated)");
+
+    SC.run(function () { view.set('nowShowing',viewToAdd2); });
+    equals(children.get('length'), 1, "should have one child views after setting nowShowing to view2(uninstantiated)");
+
+    SC.run(function () { view.set('nowShowing',viewToAdd1); });
+    equals(children.get('length'), 1, "should have one child views after setting nowShowing to view1(uninstantiated)");
+  });
+
+
+  test("Mix up instantiated views, uninstantied views, and string", function () {
+    var view = pane.view('reuse-children');
+    view.awake();
+
+    var viewToAdd1 = SC.View.extend({value: 'View1'});
+    SC.run(function () {view.set('nowShowing',viewToAdd1); });
+
+    var children = view.get('childViews');
+    equals(children.get('length'), 1, "should have one child view after setting nowShowing to view1(uninstantiated)");
+
+    var viewToAdd2 = SC.View.extend({value: 'View2'});
+    SC.run(function () { view.set('nowShowing',viewToAdd2); });
+    equals(children.get('length'), 1, "should have one child views after setting nowShowing to view2(uninstantiated)"); 
+
+    var viewToAdd3 = SC.View.create({value: 'View3'});
+    SC.run(function () { view.set('nowShowing',viewToAdd3); });
+    equals(children.get('length'), 2, "should have two child views after setting nowShowing to view3(instantiated)");
+
+    SC.run(function () { view.set('nowShowing',viewToAdd2); });
+    equals(children.get('length'), 2, "should have two child views after setting nowShowing to view2(uninstantiated)");
+
+    SC.run(function () { view.set('nowShowing',viewToAdd1); });
+    equals(children.get('length'), 2, "should have two child views after setting nowShowing to view1(uninstantiated)");
+
+    var viewToAdd4 = SC.View.create({value: 'View4'});
+    SC.run(function () { view.set('nowShowing',viewToAdd4); });
+    equals(children.get('length'), 3, "should have three child views after setting nowShowing to view4(instantiated)");
+
+    var viewForString = SC.LabelView.create({value: 'View3'});
+    SC.run(function () {
+      view.set('label', viewForString);
+      view.set('nowShowing', 'label');  
+    });
+    equals(view.get('contentView').get('value'), 'View3', 'contentView changes as intended when an instantiated view is passed to nowShowing');
+    equals(children.get('length'), 4, "should have four child views after setting nowShowing to viewForString(string)");
+
+    // Set nowShowing to a nonexistent string.
+    viewToAdd = 'NonexistentNamespace.NonexistentViewClass';
+    view.set('nowShowing', viewToAdd);
+    equals(view.get('contentView'), null, 'contentView changes to null when nowShowing is set to a string pointing at nothing');
+
+    SC.run(function () { view.set('nowShowing',viewToAdd4); });
+    equals(children.get('length'), 4, "should have four child views after setting nowShowing to view4(instantiated)");
+
+    SC.run(function () { view.set('nowShowing',viewToAdd3); });
+    equals(children.get('length'), 4, "should have four child views after setting nowShowing to view3(instantiated)");
+
+    equals(children.get('length'), 4, "should have four child views after setting nowShowing to viewForString(string)");
+  });
 })();
