@@ -748,7 +748,8 @@ SC.RenderContext = SC.Builder.create(
         attr = this.$().attr('style');
 
         if (attr && (attr = attr.toString()).length>0) {
-          if(SC.browser.msie){
+          // Ensure attributes are lower case for IE
+          if(SC.browser.name === SC.BROWSER.ie) {
             attr = attr.toLowerCase();
           }
           styles = {};
@@ -1001,8 +1002,8 @@ SC.RenderContext.fn.css = SC.RenderContext.fn.addStyle;
   method on a render context.
 */
 
-
-if (!SC.browser.isSafari || parseInt(SC.browser.version, 10) < 526) {
+// Safari 3 support using the fact that Safari 3's Webkit version never went to 526.
+if (SC.browser.name !== SC.BROWSER.safari || SC.browser.versionMajor(SC.browser.engineVersion) < 526) {
   SC.RenderContext._safari3 = YES;
 }
 
